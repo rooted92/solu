@@ -104,8 +104,10 @@ export default function App() {
     if (!plan || !goalsList.length) return []
 
     const budget = plan.monthly_budget
-    const start = new Date(plan.start_date + '-01')
-    const end = new Date(plan.end_date + '-01')
+    const [startYear, startMonth] = plan.start_date.split('-').map(Number)
+    const [endYear, endMonth] = plan.end_date.split('-').map(Number)
+    const start = new Date(startYear, startMonth - 1, 1)
+    const end = new Date(endYear, endMonth - 1, 1)
     const months = []
 
     let current = new Date(start)
