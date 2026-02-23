@@ -10,10 +10,11 @@ const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'Ju
 export default function PaymentPlan() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { activePlan, goals, payments, loadPlanData, calculateSchedule } = usePlan()
+  const { activePlan, goals, payments, loadPlanData, calculateSchedule, setActivePlan, setGoals, setPayments } = usePlan()
   const { showToast } = useToast()
   const [celebration, setCelebration] = useState(null)
   const [saving, setSaving] = useState({})
+  const [archiving, setArchiving] = useState(false)
 
   if (!activePlan || goals.length === 0) {
     return (
@@ -24,6 +25,30 @@ export default function PaymentPlan() {
         <button className="btn-primary" onClick={() => navigate('/goals')}>Set Up Goals →</button>
       </div>
     )
+  }
+
+  const handleArchive = async () => {
+    if (!activePlan) return
+    setArchiving(true)
+    try {
+      // Archive the plan
+      await supabase.from('plans').update({
+        status: 'archived',
+        completed_at: new Date().toISOString(),
+      }).eq('id', activePlan.id)
+
+      // Clear local state so all pages reset
+      setActivePlan(null)
+      setGoals([])
+      setPayments([])
+      setCelebration(null)
+
+      showToast('🏆 Plan archived! Starting fresh.')
+      navigate('/')
+    } catch (err) {
+      showToast('Error archiving plan', 'error')
+    }
+    setArchiving(false)
   }
 
   const schedule = calculateSchedule(activePlan, goals)
@@ -128,6 +153,7 @@ export default function PaymentPlan() {
           goalName={celebration.goalName}
           isPlanComplete={celebration.isPlanComplete}
           onClose={() => setCelebration(null)}
+          onArchive={handleArchive}
         />
       )}
 

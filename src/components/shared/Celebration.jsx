@@ -1,9 +1,8 @@
 import { useEffect } from 'react'
 import confetti from 'canvas-confetti'
 
-export default function Celebration({ goalName, onClose, isPlanComplete }) {
+export default function Celebration({ goalName, onClose, onArchive, isPlanComplete }) {
   useEffect(() => {
-    // Fire confetti
     const fire = (particleRatio, opts) => {
       confetti({
         origin: { y: 0.6 },
@@ -11,7 +10,6 @@ export default function Celebration({ goalName, onClose, isPlanComplete }) {
         particleCount: Math.floor(200 * particleRatio),
       })
     }
-
     fire(0.25, { spread: 26, startVelocity: 55, colors: ['#6ee7b7', '#818cf8'] })
     fire(0.2, { spread: 60, colors: ['#fbbf24', '#f472b6'] })
     fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8, colors: ['#6ee7b7', '#818cf8', '#fbbf24'] })
@@ -36,12 +34,20 @@ export default function Celebration({ goalName, onClose, isPlanComplete }) {
         )}
         <p className="text-gray-500 text-sm mb-8">
           {isPlanComplete
-            ? 'This plan will be archived. Time to start a new chapter!'
-            : 'Keep going — you\'re making incredible progress!'}
+            ? 'Time to start a new chapter! Archive this plan to preserve your history.'
+            : "Keep going — you're making incredible progress!"}
         </p>
-        <button className="btn-primary w-full justify-center text-base py-3" onClick={onClose}>
-          {isPlanComplete ? 'Archive & Start New Plan' : 'Keep Going! 💪'}
+        <button
+          className="btn-primary w-full justify-center text-base py-3"
+          onClick={isPlanComplete ? onArchive : onClose}
+        >
+          {isPlanComplete ? '🏆 Archive & Start New Plan' : 'Keep Going! 💪'}
         </button>
+        {isPlanComplete && (
+          <button className="btn-secondary w-full justify-center mt-3 py-3" onClick={onClose}>
+            Stay on this plan
+          </button>
+        )}
       </div>
     </div>
   )
