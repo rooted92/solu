@@ -149,8 +149,8 @@ export default function PaymentPlan() {
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto">
+        {/* ── DESKTOP TABLE (md and up) ── */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm min-w-[600px]">
             <thead>
               <tr className="border-b border-border">
@@ -165,7 +165,7 @@ export default function PaymentPlan() {
               </tr>
             </thead>
             <tbody>
-              {schedule.map((row, idx) => {
+              {schedule.map((row) => {
                 const monthComplete = isMonthComplete(row)
                 const [year, month] = row.monthKey.split('-')
                 const monthName = `${MONTHS_LONG[parseInt(month) - 1]} ${year}`
@@ -176,14 +176,11 @@ export default function PaymentPlan() {
                     key={row.monthKey}
                     className={`border-b border-border/50 transition-all ${monthComplete ? 'opacity-50' : 'hover:bg-surface2/50'}`}
                   >
-                    {/* Month */}
                     <td className="py-4 px-3">
                       <span className={`font-display font-bold text-sm ${monthComplete ? 'line-through text-gray-600' : 'text-white'}`}>
                         {monthName}
                       </span>
                     </td>
-
-                    {/* Per-goal cells */}
                     {goals.map((g, i) => {
                       const scheduled = row.alloc[g.id] || 0
                       const payment = getPayment(g.id, row.monthKey)
@@ -192,31 +189,102 @@ export default function PaymentPlan() {
                       const amountPaid = payment?.amount_paid || 0
                       const key = `${g.id}-${row.monthKey}`
                       const color = GOAL_COLORS[i % GOAL_COLORS.length]
-
-                      if (scheduled === 0) {
-                        return <td key={g.id} className="py-4 px-3 text-gray-700">—</td>
-                      }
-
+                      if (scheduled === 0) return <td key={g.id} className="py-4 px-3 text-gray-700">—</td>
                       return (
                         <td key={g.id} className="py-4 px-3">
                           <div className="flex flex-col gap-1.5">
-                            {/* Checkbox + amount */}
                             <div className="flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={e => handleCheck(g.id, row.monthKey, scheduled, e.target.checked)}
-                                className="w-4 h-4 cursor-pointer accent-emerald-400"
-                                disabled={saving[key]}
-                              />
+                              <input type="checkbox" checked={isChecked} onChange={e => handleCheck(g.id, row.monthKey, scheduled, e.target.checked)} className="w-4 h-4 cursor-pointer accent-emerald-400" disabled={saving[key]} />
                               <span className={`font-medium ${isChecked ? 'line-through text-gray-600' : ''}`} style={{ color: isChecked ? undefined : color }}>
                                 ${scheduled.toLocaleString()}
                               </span>
-                              {isPartial && (
-                                <span className="badge bg-accent4/10 text-accent4 text-xs">partial</span>
-                              )}
+                              {isPartial && <span className="badge bg-accent4/10 text-accent4 text-xs">partial</span>}
                             </div>
-                            {/* Partial payment input */}
+                            {!isChecked && (
+                              <input type="number" placeholder="Actual paid" defaultValue={amountPaid || ''} onBlur={e => { const val = parseFloat(e.target.value); if (!isNaN(val) && val !== amountPaid) handlePartialPayment(g.id, row.monthKey, scheduled, val) }} className="w-24 bg-surface3 border border-border rounded px-2 py-1 text-xs text-gray-400 outline-none focus:border-accent/50" />
+                            )}
+                          </div>
+                        </td>
+                      )
+                    })}
+                    <td className="py-4 px-3"><span className="font-display font-bold text-white">${total.toLocaleString()}</span></td>
+                    <td className="py-4 px-3">
+                      {monthComplete
+                        ? <span className="badge bg-accent/10 text-accent border border-accent/20">✓ Done</span>
+                        : <span className="badge bg-surface3 text-gray-500 border border-border">Pending</span>
+                      }
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* ── MOBILE CARDS (below md) ── */}
+        <div className="md:hidden flex flex-col gap-4">
+          {schedule.map((row) => {
+            const monthComplete = isMonthComplete(row)
+            const [year, month] = row.monthKey.split('-')
+            const monthName = `${MONTHS_LONG[parseInt(month) - 1]} ${year}`
+            const total = goals.reduce((a, g) => a + (row.alloc[g.id] || 0), 0)
+            const activeGoals = goals.filter(g => (row.alloc[g.id] || 0) > 0)
+
+            return (
+              <div
+                key={row.monthKey}
+                className={`rounded-xl border transition-all overflow-hidden ${monthComplete ? 'opacity-50 border-border' : 'border-border hover:border-border2'}`}
+                style={{ background: 'var(--surface2, #161624)' }}
+              >
+                {/* Month header */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                  <span className={`font-display font-bold text-base ${monthComplete ? 'line-through text-gray-500' : 'text-white'}`}>
+                    {monthName}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-display font-bold text-white">${total.toLocaleString()}</span>
+                    {monthComplete
+                      ? <span className="badge bg-accent/10 text-accent border border-accent/20 text-xs">✓ Done</span>
+                      : <span className="badge bg-surface3 text-gray-500 border border-border text-xs">Pending</span>
+                    }
+                  </div>
+                </div>
+
+                {/* Goal rows */}
+                <div className="divide-y divide-border/50">
+                  {activeGoals.map((g, i) => {
+                    const scheduled = row.alloc[g.id] || 0
+                    const payment = getPayment(g.id, row.monthKey)
+                    const isChecked = payment?.is_checked || false
+                    const isPartial = payment?.is_partial || false
+                    const amountPaid = payment?.amount_paid || 0
+                    const key = `${g.id}-${row.monthKey}`
+                    const goalIndex = goals.findIndex(gl => gl.id === g.id)
+                    const color = GOAL_COLORS[goalIndex % GOAL_COLORS.length]
+
+                    return (
+                      <div key={g.id} className="px-4 py-3 flex items-center justify-between gap-3">
+                        {/* Left: checkbox + goal name */}
+                        <div className="flex items-center gap-3 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={e => handleCheck(g.id, row.monthKey, scheduled, e.target.checked)}
+                            className="w-5 h-5 cursor-pointer flex-shrink-0 accent-emerald-400"
+                            disabled={saving[key]}
+                          />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="w-2 h-2 rounded-full flex-shrink-0"
+                                style={{ background: color }}
+                              />
+                              <span className={`text-sm font-medium truncate ${isChecked ? 'line-through text-gray-500' : 'text-white'}`}>
+                                {g.name}
+                              </span>
+                              {isPartial && <span className="badge bg-accent4/10 text-accent4 text-xs flex-shrink-0">partial</span>}
+                            </div>
+                            {/* Partial input */}
                             {!isChecked && (
                               <input
                                 type="number"
@@ -224,36 +292,27 @@ export default function PaymentPlan() {
                                 defaultValue={amountPaid || ''}
                                 onBlur={e => {
                                   const val = parseFloat(e.target.value)
-                                  if (!isNaN(val) && val !== amountPaid) {
-                                    handlePartialPayment(g.id, row.monthKey, scheduled, val)
-                                  }
+                                  if (!isNaN(val) && val !== amountPaid) handlePartialPayment(g.id, row.monthKey, scheduled, val)
                                 }}
-                                className="w-24 bg-surface3 border border-border rounded px-2 py-1 text-xs text-gray-400 outline-none focus:border-accent/50"
+                                className="mt-1.5 w-32 bg-surface3 border border-border rounded px-2 py-1 text-xs text-gray-400 outline-none focus:border-accent/50"
                               />
                             )}
                           </div>
-                        </td>
-                      )
-                    })}
-
-                    {/* Total */}
-                    <td className="py-4 px-3">
-                      <span className="font-display font-bold text-white">${total.toLocaleString()}</span>
-                    </td>
-
-                    {/* Status */}
-                    <td className="py-4 px-3">
-                      {monthComplete ? (
-                        <span className="badge bg-accent/10 text-accent border border-accent/20">✓ Done</span>
-                      ) : (
-                        <span className="badge bg-surface3 text-gray-500 border border-border">Pending</span>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                        </div>
+                        {/* Right: amount */}
+                        <span
+                          className={`font-display font-bold text-base flex-shrink-0 ${isChecked ? 'line-through text-gray-500' : ''}`}
+                          style={{ color: isChecked ? undefined : color }}
+                        >
+                          ${scheduled.toLocaleString()}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>
