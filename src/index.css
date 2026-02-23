@@ -19,6 +19,15 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  html.light body {
+    background-color: #f0f4f8;
+    color: #1a202c;
+  }
+  html.light .text-white { color: #1a202c !important; }
+  html.light .text-gray-400 { color: #4a5568 !important; }
+  html.light .text-gray-500 { color: #718096 !important; }
+  html.light .text-gray-600 { color: #718096 !important; }
+
   h1, h2, h3, h4 {
     font-family: 'Clash Display', sans-serif;
   }

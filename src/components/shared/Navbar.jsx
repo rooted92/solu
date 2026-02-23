@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../App'
@@ -16,6 +16,27 @@ export default function Navbar() {
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const [dropOpen, setDropOpen] = useState(false)
+  const [isDark, setIsDark] = useState(true)
+
+  useEffect(() => {
+    const saved = localStorage.getItem('solu-theme')
+    if (saved === 'light') {
+      setIsDark(false)
+      document.documentElement.classList.add('light')
+    }
+  }, [])
+
+  const toggleTheme = () => {
+    const next = !isDark
+    setIsDark(next)
+    if (next) {
+      document.documentElement.classList.remove('light')
+      localStorage.setItem('solu-theme', 'dark')
+    } else {
+      document.documentElement.classList.add('light')
+      localStorage.setItem('solu-theme', 'light')
+    }
+  }
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -52,8 +73,45 @@ export default function Navbar() {
           ))}
         </div>
 
-        {/* User menu */}
+        {/* Right side */}
         <div className="hidden md:flex items-center gap-3">
+          {/* Fun theme toggle */}
+          <button
+            onClick={toggleTheme}
+            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="relative w-14 h-7 rounded-full border border-border transition-all duration-500 overflow-hidden hover:border-accent/40"
+            style={{ background: isDark ? 'linear-gradient(135deg, #0f0f1a, #1e1e2e)' : 'linear-gradient(135deg, #93c5fd, #fde68a)' }}
+          >
+            {/* Stars (dark mode) */}
+            {isDark && (
+              <>
+                <span className="absolute top-1 left-1.5 w-0.5 h-0.5 bg-white rounded-full opacity-80" />
+                <span className="absolute top-2.5 left-3 w-0.5 h-0.5 bg-white rounded-full opacity-60" />
+                <span className="absolute top-1.5 left-5 w-0.5 h-0.5 bg-white rounded-full opacity-70" />
+              </>
+            )}
+            {/* Sun rays (light mode) */}
+            {!isDark && (
+              <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px]">☀️</span>
+            )}
+            {/* Thumb */}
+            <span
+              className="absolute top-1 w-5 h-5 rounded-full shadow-md transition-all duration-500 flex items-center justify-center text-[10px]"
+              style={{
+                left: isDark ? '2px' : '30px',
+                background: isDark
+                  ? 'linear-gradient(135deg, #e8e8f0, #c0c0d0)'
+                  : 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+                boxShadow: isDark
+                  ? '0 1px 4px rgba(0,0,0,0.5)'
+                  : '0 1px 8px rgba(251,191,36,0.6)',
+              }}
+            >
+              {isDark ? '🌙' : ''}
+            </span>
+          </button>
+
+          {/* User menu */}
           <div className="relative">
             <button
               onClick={() => setDropOpen(!dropOpen)}
@@ -81,13 +139,27 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile hamburger */}
-        <button
-          className="md:hidden text-gray-400 hover:text-white"
-          onClick={() => setMenuOpen(!menuOpen)}
-        >
-          {menuOpen ? '✕' : '☰'}
-        </button>
+        {/* Mobile right side */}
+        <div className="md:hidden flex items-center gap-2">
+          <button
+            onClick={toggleTheme}
+            className="relative w-12 h-6 rounded-full border border-border overflow-hidden"
+            style={{ background: isDark ? 'linear-gradient(135deg, #0f0f1a, #1e1e2e)' : 'linear-gradient(135deg, #93c5fd, #fde68a)' }}
+          >
+            <span
+              className="absolute top-0.5 w-5 h-5 rounded-full transition-all duration-500 flex items-center justify-center text-[9px]"
+              style={{ left: isDark ? '1px' : '26px', background: isDark ? '#e8e8f0' : '#fbbf24' }}
+            >
+              {isDark ? '🌙' : '☀️'}
+            </span>
+          </button>
+          <button
+            className="text-gray-400 hover:text-white"
+            onClick={() => setMenuOpen(!menuOpen)}
+          >
+            {menuOpen ? '✕' : '☰'}
+          </button>
+        </div>
       </div>
 
       {/* Mobile menu */}

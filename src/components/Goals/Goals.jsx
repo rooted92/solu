@@ -16,6 +16,12 @@ export default function Goals() {
   const [deleting, setDeleting] = useState(null)
   const [form, setForm] = useState({ name: '', amount: '', type: 'debt', priority: '' })
 
+  // Draft states for budget fields
+  const [budgetDraft, setBudgetDraft] = useState(activePlan?.monthly_budget ?? '')
+  const [startDraft, setStartDraft] = useState(activePlan?.start_date ?? '')
+  const [endDraft, setEndDraft] = useState(activePlan?.end_date ?? '')
+  const [goalDrafts, setGoalDrafts] = useState({})
+
   if (!activePlan) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
@@ -59,16 +65,46 @@ export default function Goals() {
     setDeleting(null)
   }
 
-  const handleUpdateGoal = async (goalId, field, value) => {
-    await supabase.from('goals').update({ [field]: value, updated_at: new Date().toISOString() }).eq('id', goalId)
+  const handleUpdateGoal = async (goalId, updates) => {
+    await supabase.from('goals').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', goalId)
+    setGoalDrafts(prev => {
+      const next = { ...prev }
+      delete next[goalId]
+      return next
+    })
     await loadPlanData()
+    showToast('✓ Goal saved!')
   }
 
-  const handleUpdatePlan = async (field, value) => {
-    await supabase.from('plans').update({ [field]: value }).eq('id', activePlan.id)
+  const handleUpdatePlan = async (updates) => {
+    await supabase.from('plans').update(updates).eq('id', activePlan.id)
     await loadPlanData()
     showToast('✓ Plan updated!')
   }
+
+  const getGoalDraft = (goalId, field, fallback) => {
+    return goalDrafts[goalId]?.[field] ?? fallback
+  }
+
+  const setGoalDraft = (goalId, field, value) => {
+    setGoalDrafts(prev => ({
+      ...prev,
+      [goalId]: { ...prev[goalId], [field]: value }
+    }))
+  }
+
+  const hasGoalChanges = (g) => {
+    const d = goalDrafts[g.id]
+    if (!d) return false
+    return (d.name !== undefined && d.name !== g.name) ||
+           (d.amount !== undefined && parseFloat(d.amount) !== g.amount)
+  }
+
+  // Budget change detection
+  const budgetChanged = parseFloat(budgetDraft) !== activePlan.monthly_budget
+  const startChanged = startDraft !== activePlan.start_date
+  const endChanged = endDraft !== activePlan.end_date
+  const planHasChanges = budgetChanged || startChanged || endChanged
 
   // Calculate projected completion
   const totalGoal = goals.reduce((a, g) => a + g.amount, 0)
@@ -85,43 +121,60 @@ export default function Goals() {
 
       {/* Budget & Timeline */}
       <div className="card mb-6 animate-fade-up anim-d1">
-        <span className="label">Budget & Timeline</span>
+        <div className="flex items-center justify-between mb-3">
+          <span className="label mb-0">Budget & Timeline</span>
+          {planHasChanges && (
+            <button
+              className="btn-primary text-xs py-2 px-4 animate-fade-in"
+              onClick={() => handleUpdatePlan({
+                monthly_budget: parseFloat(budgetDraft),
+                start_date: startDraft,
+                end_date: endDraft,
+              })}
+            >
+              💾 Save Changes
+            </button>
+          )}
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-          <div className="card-sm">
+          <div className={`card-sm transition-all ${budgetChanged ? 'border-accent/40 bg-accent/5' : ''}`}>
             <div className="label">Monthly Budget</div>
             <div className="flex items-center gap-2">
               <span className="text-gray-500">$</span>
               <input
                 className="bg-transparent outline-none font-display text-2xl font-bold text-white w-full"
                 type="number"
-                defaultValue={activePlan.monthly_budget}
-                onBlur={e => handleUpdatePlan('monthly_budget', parseFloat(e.target.value))}
+                value={budgetDraft}
+                onChange={e => setBudgetDraft(e.target.value)}
               />
             </div>
             <div className="text-xs text-gray-600 mt-1">Per month across all goals</div>
+            {budgetChanged && <div className="text-xs text-accent mt-1">● Unsaved change</div>}
           </div>
-          <div className="card-sm">
+          <div className={`card-sm transition-all ${startChanged ? 'border-accent/40 bg-accent/5' : ''}`}>
             <div className="label">Plan Start</div>
             <input
               className="bg-transparent outline-none text-white w-full text-sm"
               type="month"
-              defaultValue={activePlan.start_date}
-              onBlur={e => handleUpdatePlan('start_date', e.target.value)}
+              value={startDraft}
+              onChange={e => setStartDraft(e.target.value)}
             />
+            {startChanged && <div className="text-xs text-accent mt-1">● Unsaved change</div>}
           </div>
-          <div className="card-sm">
+          <div className={`card-sm transition-all ${endChanged ? 'border-accent/40 bg-accent/5' : ''}`}>
             <div className="label">Target End</div>
             <input
               className="bg-transparent outline-none text-white w-full text-sm"
               type="month"
-              defaultValue={activePlan.end_date}
-              onBlur={e => handleUpdatePlan('end_date', e.target.value)}
+              value={endDraft}
+              onChange={e => setEndDraft(e.target.value)}
             />
             {monthsNeeded && (
               <div className="text-xs text-gray-600 mt-1">
                 ~{monthsNeeded} months needed at current budget
               </div>
             )}
+            {endChanged && <div className="text-xs text-accent mt-1">● Unsaved change</div>}
           </div>
         </div>
       </div>
@@ -141,54 +194,71 @@ export default function Goals() {
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {[...goals].sort((a, b) => a.priority - b.priority).map((g, i) => (
-              <div
-                key={g.id}
-                className="bg-surface2 border border-border rounded-xl p-4 relative overflow-hidden"
-                style={{ borderLeft: `3px solid ${GOAL_COLORS[i % GOAL_COLORS.length]}` }}
-              >
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
-                  <div>
-                    <div className="label">Name</div>
-                    <input
-                      className="bg-transparent outline-none text-white font-medium w-full border-b border-transparent focus:border-accent/50 pb-1 transition-colors"
-                      defaultValue={g.name}
-                      onBlur={e => handleUpdateGoal(g.id, 'name', e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <div className="label">Amount ($)</div>
-                    <input
-                      className="bg-transparent outline-none text-white font-display text-lg font-bold w-full border-b border-transparent focus:border-accent/50 pb-1 transition-colors"
-                      type="number"
-                      defaultValue={g.amount}
-                      onBlur={e => handleUpdateGoal(g.id, 'amount', parseFloat(e.target.value))}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
+            {[...goals].sort((a, b) => a.priority - b.priority).map((g, i) => {
+              const isDirty = hasGoalChanges(g)
+              return (
+                <div
+                  key={g.id}
+                  className={`bg-surface2 border rounded-xl p-4 relative overflow-hidden transition-all ${isDirty ? 'border-accent/40' : 'border-border'}`}
+                  style={{ borderLeft: `3px solid ${GOAL_COLORS[i % GOAL_COLORS.length]}` }}
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-start">
                     <div>
-                      <div className="label">Type</div>
+                      <div className="label">Name</div>
+                      <input
+                        className="bg-transparent outline-none text-white font-medium w-full border-b border-transparent focus:border-accent/50 pb-1 transition-colors"
+                        value={getGoalDraft(g.id, 'name', g.name)}
+                        onChange={e => setGoalDraft(g.id, 'name', e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <div className="label">Amount ($)</div>
+                      <input
+                        className="bg-transparent outline-none text-white font-display text-lg font-bold w-full border-b border-transparent focus:border-accent/50 pb-1 transition-colors"
+                        type="number"
+                        value={getGoalDraft(g.id, 'amount', g.amount)}
+                        onChange={e => setGoalDraft(g.id, 'amount', e.target.value)}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="label">Type</div>
+                        <button
+                          className={`badge text-xs cursor-pointer ${g.type === 'debt' ? 'bg-accent3/10 text-accent3 border border-accent3/20' : 'bg-accent/10 text-accent border border-accent/20'}`}
+                          onClick={() => handleUpdateGoal(g.id, { type: g.type === 'debt' ? 'savings' : 'debt' })}
+                        >
+                          {g.type === 'debt' ? '💳 Debt' : '🏦 Savings'}
+                        </button>
+                      </div>
                       <button
-                        className={`badge text-xs cursor-pointer ${g.type === 'debt' ? 'bg-accent3/10 text-accent3 border border-accent3/20' : 'bg-accent/10 text-accent border border-accent/20'}`}
-                        onClick={() => handleUpdateGoal(g.id, 'type', g.type === 'debt' ? 'savings' : 'debt')}
+                        className="text-gray-600 hover:text-red-400 transition-colors text-lg"
+                        onClick={() => handleDelete(g.id)}
+                        disabled={deleting === g.id}
                       >
-                        {g.type === 'debt' ? '💳 Debt' : '🏦 Savings'}
+                        {deleting === g.id ? '...' : '🗑'}
                       </button>
                     </div>
-                    <button
-                      className="text-gray-600 hover:text-red-400 transition-colors text-lg"
-                      onClick={() => handleDelete(g.id)}
-                      disabled={deleting === g.id}
-                    >
-                      {deleting === g.id ? '...' : '🗑'}
-                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between mt-3">
+                    <div className="text-xs text-gray-600">
+                      Last updated: {new Date(g.updated_at || g.created_at).toLocaleDateString()}
+                    </div>
+                    {isDirty && (
+                      <button
+                        className="btn-primary text-xs py-1.5 px-3 animate-fade-in"
+                        onClick={() => handleUpdateGoal(g.id, {
+                          name: getGoalDraft(g.id, 'name', g.name),
+                          amount: parseFloat(getGoalDraft(g.id, 'amount', g.amount)),
+                        })}
+                      >
+                        💾 Save
+                      </button>
+                    )}
                   </div>
                 </div>
-                <div className="text-xs text-gray-600 mt-2">
-                  Last updated: {new Date(g.updated_at || g.created_at).toLocaleDateString()}
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
