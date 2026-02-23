@@ -59,7 +59,7 @@ export default function Navbar() {
             className="font-display text-xl font-bold text-accent cursor-pointer tracking-tight"
             onClick={() => navigate('/')}
           >
-            Solu
+            solu
           </div>
 
           <div className="hidden md:flex items-center gap-1">

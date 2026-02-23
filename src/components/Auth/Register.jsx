@@ -55,7 +55,7 @@ export default function Register() {
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-accent/10 border border-accent/20 mb-4">
             <span className="font-display text-2xl font-bold text-accent">S</span>
           </div>
-          <h1 className="font-display text-4xl font-bold text-white">Solu</h1>
+          <h1 className="font-display text-4xl font-bold text-white">solu</h1>
           <p className="text-gray-500 mt-2 text-sm">Start your journey to financial freedom</p>
         </div>
 
