@@ -106,6 +106,20 @@ export default function Goals() {
   const endChanged = endDraft !== activePlan.end_date
   const planHasChanges = budgetChanged || startChanged || endChanged
 
+  // Auto-calculate suggested budget when dates change
+  const calcSuggestedBudget = (start, end) => {
+    if (!start || !end || goals.length === 0) return null
+    const [sy, sm] = start.split('-').map(Number)
+    const [ey, em] = end.split('-').map(Number)
+    const months = (ey - sy) * 12 + (em - sm) + 1
+    if (months <= 0) return null
+    const total = goals.reduce((a, g) => a + g.amount, 0)
+    return Math.ceil(total / months)
+  }
+
+  const suggestedBudget = calcSuggestedBudget(startDraft, endDraft)
+  const showSuggestion = suggestedBudget && suggestedBudget !== parseFloat(budgetDraft)
+
   // Calculate projected completion
   const totalGoal = goals.reduce((a, g) => a + g.amount, 0)
   const monthsNeeded = activePlan.monthly_budget ? Math.ceil(totalGoal / activePlan.monthly_budget) : null
@@ -137,44 +151,56 @@ export default function Goals() {
           )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-          <div className={`card-sm transition-all ${budgetChanged ? 'border-accent/40 bg-accent/5' : ''}`}>
+          <div className={`card-sm transition-all ${budgetChanged ? 'border-accent/40' : ''}`} style={{ borderColor: budgetChanged ? 'var(--color-accent)' : undefined }}>
             <div className="label">Monthly Budget</div>
             <div className="flex items-center gap-2">
-              <span className="text-gray-500">$</span>
+              <span style={{ color: 'var(--color-muted)' }}>$</span>
               <input
-                className="bg-transparent outline-none font-display text-2xl font-bold text-white w-full"
+                className="bg-transparent outline-none font-display text-2xl font-bold w-full"
+                style={{ color: 'var(--color-text)' }}
                 type="number"
                 value={budgetDraft}
                 onChange={e => setBudgetDraft(e.target.value)}
               />
             </div>
-            <div className="text-xs text-gray-600 mt-1">Per month across all goals</div>
-            {budgetChanged && <div className="text-xs text-accent mt-1">● Unsaved change</div>}
+            <div className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>Per month across all goals</div>
+            {showSuggestion && (
+              <button
+                className="mt-2 text-xs font-bold px-3 py-1.5 rounded-lg transition-all animate-fade-in flex items-center gap-1.5"
+                style={{ background: 'rgba(110,231,183,0.12)', color: 'var(--color-accent)', border: '1px solid rgba(110,231,183,0.25)' }}
+                onClick={() => setBudgetDraft(suggestedBudget)}
+              >
+                ✨ Use suggested: ${suggestedBudget.toLocaleString()}/mo
+              </button>
+            )}
+            {budgetChanged && <div className="text-xs mt-1" style={{ color: 'var(--color-accent)' }}>● Unsaved change</div>}
           </div>
-          <div className={`card-sm transition-all ${startChanged ? 'border-accent/40 bg-accent/5' : ''}`}>
+          <div className={`card-sm transition-all`} style={{ borderColor: startChanged ? 'var(--color-accent)' : undefined }}>
             <div className="label">Plan Start</div>
             <input
-              className="bg-transparent outline-none text-white w-full text-sm"
+              className="bg-transparent outline-none w-full text-sm"
+              style={{ color: 'var(--color-text)' }}
               type="month"
               value={startDraft}
               onChange={e => setStartDraft(e.target.value)}
             />
-            {startChanged && <div className="text-xs text-accent mt-1">● Unsaved change</div>}
+            {startChanged && <div className="text-xs mt-1" style={{ color: 'var(--color-accent)' }}>● Unsaved change</div>}
           </div>
-          <div className={`card-sm transition-all ${endChanged ? 'border-accent/40 bg-accent/5' : ''}`}>
+          <div className="card-sm transition-all" style={{ borderColor: endChanged ? 'var(--color-accent)' : undefined }}>
             <div className="label">Target End</div>
             <input
-              className="bg-transparent outline-none text-white w-full text-sm"
+              className="bg-transparent outline-none w-full text-sm"
+              style={{ color: 'var(--color-text)' }}
               type="month"
               value={endDraft}
               onChange={e => setEndDraft(e.target.value)}
             />
             {monthsNeeded && (
-              <div className="text-xs text-gray-600 mt-1">
+              <div className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>
                 ~{monthsNeeded} months needed at current budget
               </div>
             )}
-            {endChanged && <div className="text-xs text-accent mt-1">● Unsaved change</div>}
+            {endChanged && <div className="text-xs mt-1" style={{ color: 'var(--color-accent)' }}>● Unsaved change</div>}
           </div>
         </div>
       </div>
