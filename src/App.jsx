@@ -101,76 +101,65 @@ export default function App() {
 
   // ── Calculate payment schedule ────────────────────────
   const calculateSchedule = (plan, goalsList) => {
-  if (!plan || !goalsList.length) return []
+    if (!plan || !goalsList.length) return []
 
-  const budget = plan.monthly_budget
-  const [startYear, startMonth] = plan.start_date.split('-').map(Number)
+    const budget = plan.monthly_budget
+    const [startYear, startMonth] = plan.start_date.split('-').map(Number)
 
-  const debtGoals = goalsList
-    .filter(g => g.type === 'debt')
-    .sort((a, b) => a.priority - b.priority)
-  const savingsGoals = goalsList
-    .filter(g => g.type === 'savings')
+    const debtGoals = goalsList.filter(g => g.type === 'debt').sort((a, b) => a.priority - b.priority)
+    const savingsGoals = goalsList.filter(g => g.type === 'savings')
 
-  let remaining = {}
-  goalsList.forEach(g => { remaining[g.id] = g.amount })
+    // Always use original goal amounts — never subtract payments
+    let remaining = {}
+    goalsList.forEach(g => { remaining[g.id] = g.amount })
 
-  payments.forEach(p => {
-    if (remaining[p.goal_id] !== undefined) {
-      remaining[p.goal_id] = Math.max(0, remaining[p.goal_id] - p.amount_paid)
-    }
-  })
+    const schedule = []
+    let monthOffset = 0
+    const MAX_MONTHS = 120
 
-  const schedule = []
-  let monthOffset = 0
-  const MAX_MONTHS = 120
+    while (monthOffset < MAX_MONTHS) {
+      const allDone = goalsList.every(g => remaining[g.id] <= 0)
+      if (allDone) break
 
-  while (monthOffset < MAX_MONTHS) {
-    const allDone = goalsList.every(g => remaining[g.id] <= 0)
-    if (allDone) break
+      const totalMonth = startMonth + monthOffset - 1
+      const year = startYear + Math.floor(totalMonth / 12)
+      const month = (totalMonth % 12) + 1
+      const monthKey = `${year}-${String(month).padStart(2, '0')}`
 
-    const totalMonth = startMonth + monthOffset - 1
-    const year = startYear + Math.floor(totalMonth / 12)
-    const month = (totalMonth % 12) + 1
-    const monthKey = `${year}-${String(month).padStart(2, '0')}`
+      const alloc = {}
+      goalsList.forEach(g => alloc[g.id] = 0)
 
-    const alloc = {}
-    goalsList.forEach(g => alloc[g.id] = 0)
+      let leftover = budget
+      const activeDebt = debtGoals.find(g => remaining[g.id] > 0)
+      const activeSavings = savingsGoals.filter(g => remaining[g.id] > 0)
 
-    let leftover = budget
-    const activeDebt = debtGoals.find(g => remaining[g.id] > 0)
-    const activeSavings = savingsGoals.filter(g => remaining[g.id] > 0)
+      if (activeDebt) {
+        const savingsMin = activeSavings.length > 0 ? Math.min(leftover * 0.25, 500) : 0
+        const debtPayment = Math.min(remaining[activeDebt.id], leftover - savingsMin)
+        alloc[activeDebt.id] = Math.round(debtPayment)
+        leftover -= alloc[activeDebt.id]
+      }
 
-    if (activeDebt) {
-      // Pay off debt fully if possible, otherwise pay as much as possible
-      // leaving at least $0 for savings (debt gets priority)
-      const savingsMin = activeSavings.length > 0 ? Math.min(leftover * 0.25, 500) : 0
-      const debtPayment = Math.min(remaining[activeDebt.id], leftover - savingsMin)
-      alloc[activeDebt.id] = Math.round(debtPayment)
-      leftover -= alloc[activeDebt.id]
-    }
+      if (activeSavings.length > 0 && leftover > 0) {
+        const share = Math.floor(leftover / activeSavings.length)
+        let extra = leftover - (share * activeSavings.length)
+        activeSavings.forEach(g => {
+          const give = Math.min(remaining[g.id], share + extra)
+          alloc[g.id] = Math.round(give)
+          extra = 0
+        })
+      }
 
-    // Distribute leftover evenly among active savings goals
-    if (activeSavings.length > 0 && leftover > 0) {
-      const share = Math.floor(leftover / activeSavings.length)
-      let extra = leftover - (share * activeSavings.length)
-      activeSavings.forEach(g => {
-        const give = Math.min(remaining[g.id], share + extra)
-        alloc[g.id] = Math.round(give)
-        extra = 0
+      goalsList.forEach(g => {
+        remaining[g.id] = Math.max(0, remaining[g.id] - alloc[g.id])
       })
+
+      schedule.push({ monthKey, alloc, remainingSnap: { ...remaining } })
+      monthOffset++
     }
 
-    goalsList.forEach(g => {
-      remaining[g.id] = Math.max(0, remaining[g.id] - alloc[g.id])
-    })
-
-    schedule.push({ monthKey, alloc, remainingSnap: { ...remaining } })
-    monthOffset++
+    return schedule
   }
-
-  return schedule
-}
 
   if (loading) {
     return (
